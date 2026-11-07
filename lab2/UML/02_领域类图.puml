@@ -1,0 +1,115 @@
+@startuml
+!pragma layout smetana
+skinparam defaultFontName "PingFang SC"
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontColor #20344D
+skinparam ArrowColor #506781
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #F1F6FB
+  BorderColor #557CA6
+  HeaderBackgroundColor #DAEAF8
+}
+skinparam nodesep 33
+skinparam ranksep 42
+skinparam dpi 150
+hide empty methods
+title 酒店预订系统 · 领域类图
+
+class "用户" as User {
+  用户编号 : ID
+  角色 : 角色类型
+}
+class "酒店" as Hotel {
+  酒店编号 : ID
+  名称、城市、地址、联系方式
+  审核状态 : 状态
+}
+class "房型" as RoomType {
+  房型编号 : ID
+  名称、床型、介绍
+  人数上限 : 整数
+  是否停用 : 布尔
+}
+class "逐日房态" as DailyInventory {
+  住宿日期 : 日期
+  可售总量 : 整数
+  已占用量 : 整数
+  当日售价 : 金额
+  是否停售 : 布尔
+  --
+  /剩余量 = 可售总量 − 已占用量
+  + 计算剩余量() : 整数
+}
+class "订单" as Order #DFEEF8 {
+  订单编号 : ID
+  入住日、退房日 : 日期
+  入住人数 : 整数
+  联系人信息
+  状态 : 订单状态
+  应付总额 : 金额
+  退改规则快照
+  取消原因
+  --
+  + 确认()
+  + 取消(原因)
+  + 办理入住()
+  + 办理退房()
+}
+class "订单房晚" as OrderNight {
+  住宿日期 : 日期
+  成交单价 : 金额
+  占用记录
+}
+class "预订请求结果" as RequestResult {
+  顾客编号、请求编号 : ID
+  处理结果
+}
+class "改单申请" as ChangeRequest {
+  新日期、新房型、人数、联系人
+  处理状态、处理时间
+}
+class "住宿办理记录" as StayRecord {
+  类型 : 入住或退房
+  实际时间 : 时间
+  经办人编号 : ID
+}
+class "临时停业申请" as Closure {
+  起止日期 : 日期区间
+  审批状态、处理记录
+}
+class "业务通知记录" as Notice {
+  事件、投递结果
+  重试记录
+}
+class "操作日志" as Audit {
+  操作者（用户或系统）、目标编号
+  操作类型、时间
+  原因、结果
+}
+
+User "0..*" -- "0..1" Hotel : 工作人员归属本店
+User "1" -- "0..*" Order : 顾客拥有
+Hotel "1" -- "0..*" RoomType : 维护
+Hotel "1" -- "0..*" Closure : 提交
+RoomType "1" -- "0..*" DailyInventory : 按日配置
+RoomType "1" -- "0..*" Order : 选定
+Hotel "1" -- "0..*" Order : 归属
+Order "1" *-- "1..*" OrderNight : 成交明细
+OrderNight "0..*" --> "1" DailyInventory : 对应房型和住宿日
+Order "0..1" -- "0..*" RequestResult : 成功时关联
+Order "1" -- "0..*" ChangeRequest : 申请记录
+Order "1" -- "0..2" StayRecord : 正常办理
+Order "1" -- "0..*" Notice : 业务事件
+User "0..1" -- "0..*" Audit : 人工操作
+
+legend bottom
+  |= 领域约束 |
+  | 角色：顾客、酒店工作人员、平台管理员。订单状态见状态图。 |
+  | 每单一店、一房型、一间房。订单房晚覆盖入住日到退房前一日。 |
+  | 同一房型同一天只有一条逐日房态；同一订单至多一个待处理改单申请。 |
+  | 每个顾客的请求编号唯一；历史房晚保留成交单价和已消费记录。 |
+  | 依据：REQ-001 至 REQ-004、REQ-006 至 REQ-023、REQ-026 |
+endlegend
+@enduml

@@ -1,0 +1,73 @@
+@startuml
+skinparam defaultFontName "PingFang SC"
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontColor #20344D
+skinparam sequence {
+  ArrowColor #506781
+  LifeLineBorderColor #A5B9CE
+  ParticipantBackgroundColor #EAF3FC
+  ParticipantBorderColor #557CA6
+  GroupBorderColor #6A87A6
+  GroupBackgroundColor #EEF5FC
+}
+skinparam dpi 150
+hide footbox
+title 酒店预订系统 · 跨晚预订时序图
+
+actor 顾客 as Customer
+boundary 顾客端 as UI
+participant "订单服务" as Order
+participant "房态服务" as Room
+database "业务数据库" as DB
+
+Customer -> UI : 确认逐晚报价并提交
+UI -> Order : 提交预订（请求编号、房型、日期、人数、确认报价）
+Order -> Order : 校验身份与基本输入
+Order -> DB : 开启事务，锁定顾客与请求编号，查原结果
+DB --> Order : 返回已记录结果或授予本次处理权
+
+alt 同一请求已处理
+  Order -> DB : 结束读取事务
+  Order --> UI : 返回原结果（成功时是同一订单）
+else 首次处理
+  group 预订事务
+    Order -> DB : 按顾客、酒店及房型串行检查重叠订单
+    DB --> Order : 是否存在重叠的有效订单
+    Order -> Room : 校验酒店、房型及所有住宿日
+    Room -> DB : 按日期锁定逐日房态，读取最新价格与可订条件
+    DB --> Room : 当前逐晚房态与价格
+    Room --> Order : 校验结果与最新逐晚报价
+    alt 日期重叠、库存不足、停售、停业或未通过审核
+      Order -> DB : 保存拒绝结果并结束事务（无订单与库存变更）
+      Order --> UI : 显示失败原因
+    else 价格已变化
+      Order -> DB : 保存需重新确认的结果并结束事务
+      Order --> UI : 返回最新逐晚报价，等待顾客重新确认
+    else 校验全部通过且报价一致
+      Order -> DB : 建立待确认订单，保存价格与规则快照
+      Order -> Room : 占用全部住宿日，每晚一间
+      Room -> DB : 更新房态与订单房晚（同一事务）
+      alt 所有写入成功
+        Order -> DB : 保存成功结果并提交事务
+        DB --> Order : 提交成功
+        Order --> UI : 返回订单编号与待确认状态
+      else 写入失败
+        Order -> DB : 回滚订单与全部房晚变更
+        Order --> UI : 提示处理失败，可用原请求编号重试
+      end
+    end
+  end
+end
+UI --> Customer : 展示处理结果
+
+legend bottom
+  |= 场景与依据 |
+  | 24 日入住、26 日退房只检查 24、25 日。任一晚不足，整单失败。 |
+  | 同一请求重试复用原编号；重新确认新报价后属于新提交。 |
+  | 并发情况下，最后一间房只能被一张订单占用。 |
+  | 网络中断后，用原请求编号查询或重试；已提交则返回原结果。 |
+  | 依据：REQ-001、REQ-002、REQ-004、REQ-006 至 REQ-010 |
+  | 关联：REQ-017、REQ-022、REQ-026 |
+endlegend
+@enduml

@@ -1,0 +1,83 @@
+@startuml
+!pragma layout smetana
+skinparam defaultFontName "PingFang SC"
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontColor #20344D
+skinparam ArrowColor #506781
+skinparam componentStyle rectangle
+skinparam component {
+  BackgroundColor #EEF5FC
+  BorderColor #557CA6
+}
+skinparam package {
+  BackgroundColor #F7FAFD
+  BorderColor #ADBED0
+}
+skinparam nodesep 42
+skinparam ranksep 50
+skinparam dpi 150
+title 酒店预订系统 · 系统组件图
+
+actor 顾客 as Customer
+actor 酒店工作人员 as Staff
+actor 平台管理员 as Admin
+Customer -[hidden]right- Staff
+Staff -[hidden]right- Admin
+
+package "界面层" {
+  component "顾客端" as CustomerUI
+  component "酒店工作台" as StaffUI
+  component "平台管理端" as AdminUI
+  CustomerUI -[hidden]right- StaffUI
+  StaffUI -[hidden]right- AdminUI
+}
+
+component "服务端入口\n身份与数据范围校验" as Access #DAEAF8
+
+package "业务层" {
+  component "查询与报价\n多条件筛选、逐晚报价" as Search
+  component "订单服务\n提交、确认、退改、入住退房" as Orders #DAEAF8
+  component "平台审核与临时停业\n资料审核、停业审批、影响清单" as Approval
+  component "酒店资料与逐日房态\n房型、库存、售价、停售和房态日历" as Inventory
+  component "订单查询与统计\n按授权范围读取" as Reporting
+  component "业务通知\n超时取消通知、失败记录与重试" as Notices
+}
+component "关键操作审计\n操作者、时间、原因与结果" as Audit
+database "业务数据库\n资料、逐日房态、订单与房晚、\n审核与停业记录、通知和日志" as DB #EDF5F2
+
+Customer --> CustomerUI
+Staff --> StaffUI
+Admin --> AdminUI
+CustomerUI --> Access
+StaffUI --> Access
+AdminUI --> Access
+
+Access --> Search
+Access --> Orders
+Access --> Approval
+Access --> Inventory : 本店资料及房态维护
+Access --> Reporting
+Search --> Inventory : 只读房态
+Orders --> Inventory : 重校价格和房量\n占用或释放房晚
+Approval --> Inventory : 审核状态与停业日期
+Approval --> Reporting : 查受影响订单
+Orders --> Notices : 超时取消成功后触发
+
+Orders --> DB : 订单、房晚与库存同事务
+Inventory --> DB
+Reporting --> DB
+Approval ..> Audit : 审核与停业
+Orders ..> Audit : 订单与办理操作
+Inventory ..> Audit : 资料和房态变更
+Access ..> Audit : 权限相关事件
+Audit --> DB
+Notices --> DB : 记录投递结果
+
+legend bottom
+  |= 设计约束 |
+  | 顾客限本人订单；工作人员限本店；平台可查看全平台酒店与订单。 |
+  | 库存与订单状态须保持一致；通知失败不回滚已成功的业务。 |
+  | 依据：REQ-001 至 REQ-024、REQ-026、REQ-027 |
+endlegend
+@enduml

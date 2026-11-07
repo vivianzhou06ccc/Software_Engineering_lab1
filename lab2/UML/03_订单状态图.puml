@@ -1,0 +1,48 @@
+@startuml
+!pragma layout smetana
+skinparam defaultFontName "PingFang SC"
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontColor #20344D
+skinparam ArrowColor #506781
+skinparam state {
+  BackgroundColor #EAF3FC
+  BorderColor #557CA6
+}
+skinparam nodesep 50
+skinparam ranksep 46
+skinparam dpi 150
+title 酒店预订系统 · 订单状态图
+
+state "待确认" as Pending
+state "已确认" as Confirmed
+state "已入住" as CheckedIn
+state "已退房" as CheckedOut #E8F2EC
+state "已取消" as Cancelled #FCF0E8
+
+[*] --> Pending : 预订提交成功\n/ 创建订单并占用全部房晚
+Pending --> Confirmed : 本店工作人员确认\n/ 保留原占用
+Pending -right-> Cancelled : 酒店拒绝、取消成功\n或满足超时条件
+Confirmed -right-> Cancelled : 取消成功\n[符合退改政策]
+Confirmed --> CheckedIn : 本店工作人员办理入住\n/ 记录实际时间与经办人
+CheckedIn --> CheckedOut : 本店工作人员正常退房\n/ 保留已消费房晚记录
+
+note right of Cancelled
+  记录取消原因，只释放仍占用的房晚一次。
+  因待确认超时取消时触发顾客通知。
+  终态。
+end note
+note right of CheckedOut
+  终态。
+end note
+
+legend bottom
+  |= 状态边界 |
+  | 入住前可申请取消；申请本身不触发订单状态转换。 |
+  | 单独跟踪改单申请。订单取消成功或已入住时，未处理的改单申请失效。 |
+  | 酒店确认与超时取消同时发生时，只允许一个结果生效。 |
+  | 退改审批、截止时间、费用及超时参数待确认。 |
+  | 依据：REQ-008、REQ-011 至 REQ-016、REQ-019、REQ-026 |
+  | 待确认政策：REQ-029、REQ-030 |
+endlegend
+@enduml
